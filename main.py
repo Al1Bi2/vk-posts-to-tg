@@ -11,7 +11,7 @@ import time
 import m3u8
 import requests
 import subprocess
-from dotenv import  dotenv_values
+from dotenv import dotenv_values
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 import logging
@@ -38,6 +38,7 @@ extDataDir = os.getcwd()
 if getattr(sys, 'frozen', False):
     extDataDir = sys._MEIPASS
 config = dotenv_values(os.path.join(extDataDir, '.env'))
+
 
 def auth_handler():
     """ При двухфакторной аутентификации вызывается эта функция.
@@ -127,12 +128,11 @@ def get_new_posts(bot):
                 post = post_handler(event.obj)
                 send_message(bot, post)
 
-
-
-
+    except KeyboardInterrupt:
+        bot_logger.info("Bot stopped")
+        sys.exit(0)
     except:
         bot_logger.error("Unexpected error: {} {}".format(sys.exc_info()[0], sys.exc_info()[1]))
-
         pass
 
 
@@ -218,7 +218,6 @@ if __name__ == '__main__':
         bot_logger.error("Unexpected error at start: {} {}".format(sys.exc_info()[0], sys.exc_info()[1]))
         sys.exit(0)
 
-
     match posts_type:
         case '-e':
             get_def_posts(bot, args[2:])
@@ -232,8 +231,6 @@ if __name__ == '__main__':
         case _:
             print("usage: vk-to-tg [-e <count> <order>] [-n] [-cm <vk_post_url> <tg_post_url>]")
             sys.exit(0)
-
-
 
 
 def download_key(key_uri: str) -> bin:
