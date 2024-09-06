@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import dotenv
 import os
 import sys
 import vk_api
@@ -19,7 +19,7 @@ import logging
 from vk_api.vk_api import VkApiMethod
 import argparse
 import signal
-
+#TODO: rewrite all as module to get rid of global vars
 log_formatter = logging.Formatter(u'[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s')
 log_file_name = "bot.log"
 
@@ -39,8 +39,15 @@ bot_logger.addHandler(console_handler)
 extDataDir = os.getcwd()
 if getattr(sys, 'frozen', False):
     extDataDir = sys._MEIPASS
-config = dotenv_values(os.path.join(extDataDir, '.env'))
 
+
+def load_config(path: str = "") -> dict:
+    filepath = os.path.join(path, '.env')
+    config = dotenv_values(filepath)
+    if not config:
+        bot_logger.error(f"""No .env file at path: {filepath} """)
+        raise IOError
+    return config
 
 def auth_handler():
     """ При двухфакторной аутентификации вызывается эта функция.
@@ -217,18 +224,21 @@ def edit_music(bot, *vargs):
 
 
 def main():
-    global config
-    parser = argparse.ArgumentParser(description='A service for migration from VKontakte to Telegram and simultaneous posting.')
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-e', nargs=2, metavar=('count', 'order'), help='Migrate existing posts')
-    group.add_argument('-n', action='store_true', help='Mirror new posts')
-    group.add_argument('-cm', nargs=2, metavar=('vk_post_url', 'tg_post_url'), help='Edit music in tg from vk')
-    parser.add_argument('-l', "--local", action='store_true', help='Use .env file')
-
-
-
-    args = parser.parse_args()
     try:
+        global config
+
+        config  = load_config(extDataDir)
+        parser = argparse.ArgumentParser(description='A service for migration from VKontakte to Telegram and simultaneous posting.')
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument('-e', nargs=2, metavar=('count', 'order'), help='Migrate existing posts')
+        group.add_argument('-n', action='store_true', help='Mirror new posts')
+        group.add_argument('-cm', nargs=2, metavar=('vk_post_url', 'tg_post_url'), help='Edit music in tg from vk')
+        parser.add_argument('-l', "--local", action='store_true', help='Use .env file')
+
+
+
+        args = parser.parse_args()
+
         if args.local:
             config = dotenv_values('.env')
         bot_logger.info("Bot started")
