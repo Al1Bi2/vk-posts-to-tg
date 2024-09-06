@@ -7,6 +7,7 @@ import time
 import dotenv
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
+from vk_api.vk_api import VkApiMethod
 from telegram import InputMediaPhoto, InputMediaAudio
 from telegram.ext import Updater
 import logging
@@ -45,6 +46,7 @@ def auth_handler():
 
 class Vk2Tg:
     def __init__(self, config: dict = None):
+        self.vkapi = None
         self.longpoll = None
         self.tools = None
         self.config = config
@@ -52,6 +54,18 @@ class Vk2Tg:
         self.tg_session = None
         self.bot_logger = self._setup_logger()
         self.bot_logger.debug("INIT SUCCESSFULLY")
+
+    def edit_music(self, vk_link: str, tg_link:str):
+        self.bot_logger.info("Editing music")
+        self.bot_logger.info(vk_link)
+        vk_id = vk_link.split('?w=wall')[1].split('&')[0]
+        tg_id = int(tg_link.split('/')[-1].split('?')[0])
+
+        post = self.vkapi.wall.get_by_id(posts=vk_id)[0]
+        content = self._post_handler(post)
+        self.bot_logger.info(content.text)
+        for idx, song in enumerate(content.audio):
+            self.tg_session.edit_message_media(media=song, chat_id=self.config['TELEGRAM_GROUP_ID'], message_id=tg_id + idx)
 
     def copy_ex_posts(self, count=0, order=ORDER_OLDEST, offset=0):
         """Copy existing posts
@@ -193,6 +207,7 @@ class Vk2Tg:
             return None
         self.longpoll = VkBotLongPoll(vk_session, self.config['VK_GROUP_ID'])
         self.tools = vk_api.VkTools(vk_session)
+        self.vkapi = vk_api.vk_api.VkApiMethod(vk_session)
         self.bot_logger.info("VK logged")
         return vk_session
 
@@ -209,7 +224,8 @@ def main():
         bot.load_config()
         bot.login()
         #bot.copy_new_posts()
-        bot.copy_ex_posts()
+        #bot.copy_ex_posts()
+        bot.edit_music(vk_link="https://vk.com/electro_minds?w=wall-201106047_388",tg_link="")
     except Exception as e:
         logging.error(e)
         exit(-1)
