@@ -17,10 +17,15 @@ import subprocess
 LOG_FORMAT = logging.Formatter(u'[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s')
 LOG_FILENAME = "bot.log"
 LOG_LEVEL = logging.DEBUG
-ORDER_NORMAL = -1
-ORDER_REVERSE = 1
+ORDER_CHRONO = 1
+"""Chronological order of posts"""
+ORDER_REVERSE = -1
+"""Wall order of posts"""
+
+
 @dataclass
 class Content:
+    """DataClass for wall content transfer"""
     text: str = ""
     media: list[InputMediaPhoto] = field(default_factory=list)
     audio: list[InputMediaAudio] = field(default_factory=list)
@@ -48,30 +53,35 @@ class Vk2Tg:
         self.bot_logger = self._setup_logger()
         self.bot_logger.debug("INIT SUCCESSFULLY")
 
-    def get_def_posts(self, count=None, order=-1):
-        if count<0:
+    def copy_ex_posts(self, count=0, order=ORDER_CHRONO,offset=0):
+        """Copy existing posts
+
+        count : number of posts
+        order : chronological or wall order (-1 or 1 respectively)
+        """
+        if count < 0:
             raise ValueError("<count> should be greater than 0")
         self.bot_logger.info("logged for existing posts")
 
         wall = self.tools.get_all('wall.get', 100, {'owner_id': -int(self.config['VK_GROUP_ID'])})
         self.bot_logger.debug(f"Total number of posts: {wall['count']}")
 
-        if not count:
-            count = wall["count"]
+        total = wall["count"]
+        if count == 0:
+            count = total
+        self.bot_logger.debug(min(offset + count, total))
+        posts = sorted(wall["items"],key = lambda d: d["date"]) #sort by date because of pinned post
 
-        for wall_item in wall['items'][::order]:
+        for i in range(offset, min(offset + count, total)):
             try:
-                post = self._post_handler(wall_item)
+                post = self._post_handler(posts[::order][i]) #reverse by [::-1] if we want chrono order
                 self.send_message(post)
-                count -= 1
-                if count <= 0:
-                    break
                 time.sleep(30)
             except ValueError as e:
                 self.bot_logger.error(e)
                 pass
 
-    def get_new_posts(self):
+    def copy_new_posts(self):
         try:
             for event in self.longpoll.listen():
                 self.bot_logger.info("new event")
@@ -126,8 +136,8 @@ class Vk2Tg:
                             subprocess.run(
                                 ['ffmpeg', '-http_persistent', 'false', '-i', url, '-y', '-c', 'copy', 'audio.mp3'])
                         content.audio.append(InputMediaAudio(open('audio.mp3', 'rb'),
-                                                     performer=audio_att['artist'],
-                                                     title=audio_att['title']))
+                                                             performer=audio_att['artist'],
+                                                             title=audio_att['title']))
                         os.remove('audio.mp3')
 
             time.sleep(6)
@@ -180,8 +190,8 @@ class Vk2Tg:
             self.bot_logger.error(f"Auth error {error_msg}")
 
             return None
-        self.longpoll = VkBotLongPoll(self.vk_session, self.config['VK_GROUP_ID'])
-        self.tools = vk_api.VkTools(self.vk_session)
+        self.longpoll = VkBotLongPoll(vk_session, self.config['VK_GROUP_ID'])
+        self.tools = vk_api.VkTools(vk_session)
         self.bot_logger.info("VK logged")
         return vk_session
 
@@ -197,8 +207,8 @@ def main():
         bot = Vk2Tg()
         bot.load_config()
         bot.login()
-        bot.get_new_posts()
-        bot.get_def_posts(0)
+        #bot.copy_new_posts()
+        bot.copy_ex_posts(offset=205)
     except Exception as e:
         logging.error(e)
         exit(-1)
