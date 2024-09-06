@@ -4,8 +4,8 @@ import os
 import sys
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
-
-
+import vk2tg
+from telegram import InputMediaPhoto, InputMediaAudio
 from telegram.ext import Updater
 import time
 
