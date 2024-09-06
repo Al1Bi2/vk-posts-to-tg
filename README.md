@@ -18,5 +18,5 @@ and enable Long Poll API here `https://vk.com/<your_group_id>?act=longpoll_api`
 6. ???
 7. Maybe profit
 
-Also, you can compile it for Win with pyinstaller or chmod fot unix
+Also, you can compile it for Win with pyinstaller or chmod for unix
 

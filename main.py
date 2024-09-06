@@ -17,6 +17,8 @@ from Crypto.Util.Padding import unpad
 import logging
 
 from vk_api.vk_api import VkApiMethod
+import argparse
+import signal
 
 log_formatter = logging.Formatter(u'[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s')
 log_file_name = "bot.log"
@@ -56,7 +58,7 @@ first = True
 
 
 def post_handler(post):
-    try:  # TODO: rewrite the code
+    try:
         content = {"text": "", "media": [], "audio": []}
         bot_logger.info('Post received')
         text = ""
@@ -94,11 +96,14 @@ def post_handler(post):
                         audio.append(
                             InputMediaAudio(open('audio.mp3', 'rb'), performer=audio_att['artist'],
                                             title=audio_att['title']))
+                        os.remove('audio.mp3')
         content['text'] = text
         content['media'] = media
         content['audio'] = audio
 
         time.sleep(6)
+
+        bot_logger.info('Post processed')
         return content
     except:
         bot_logger.error("Unexpected error: {} {}".format(sys.exc_info()[0], sys.exc_info()[1]))
@@ -116,17 +121,29 @@ def send_message(bot, content):
 
 
 def get_new_posts(bot):
-    try:  # TODO: rewrite the code
+    try:
 
         vk_session = vk_api.VkApi(token=config['VK_TOKEN'])
         bot_logger.info("vk logged")
         long_poll = VkBotLongPoll(vk_session, config['VK_GROUP_ID'])
         bot_logger.info("vk longpoll logged")
+
+        def signal_handler(sig, frame):
+            print("\nKeyboard interrupt exception caught")
+            time.sleep(2)
+            print("Exiting the program.")
+            exit(0)
+
+        # Register the signal handler for SIGINT (Ctrl + C)
+        signal.signal(signal.SIGINT, signal_handler)
         for event in long_poll.listen():
+            bot_logger.info("new event")
 
             if event.type == VkBotEventType.WALL_POST_NEW:
                 post = post_handler(event.obj)
                 send_message(bot, post)
+
+
 
     except KeyboardInterrupt:
         bot_logger.info("Bot stopped")
@@ -199,16 +216,20 @@ def edit_music(bot, *vargs):
         bot.edit_message_media(media=song, chat_id=config['TELEGRAM_GROUP_ID'], message_id=tg_post + idx)
 
 
-if __name__ == '__main__':
+def main():
+    global config
+    parser = argparse.ArgumentParser(description='A service for migration from VKontakte to Telegram and simultaneous posting.')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-e', nargs=2, metavar=('count', 'order'), help='Migrate existing posts')
+    group.add_argument('-n', action='store_true', help='Mirror new posts')
+    group.add_argument('-cm', nargs=2, metavar=('vk_post_url', 'tg_post_url'), help='Edit music in tg from vk')
+    parser.add_argument('-l', "--local", action='store_true', help='Use .env file')
 
-    args = sys.argv
-    if args is None or len(args) < 2:
-        print("usage: vk-to-tg [-e <count> <order>] [-n] [-cm <vk_post_url> <tg_post_url>]")
-        sys.exit(0)
-    posts_type = args[1]
 
+
+    args = parser.parse_args()
     try:
-        if posts_type == "-local":
+        if args.local:
             config = dotenv_values('.env')
         bot_logger.info("Bot started")
         updater = Updater(config['TELEGRAM_BOT_TOKEN'])
@@ -218,69 +239,24 @@ if __name__ == '__main__':
         bot_logger.error("Unexpected error at start: {} {}".format(sys.exc_info()[0], sys.exc_info()[1]))
         sys.exit(0)
 
-    match posts_type:
-        case '-e':
-            get_def_posts(bot, args[2:])
-        case '-n':
-            while True:
-                get_new_posts(bot)
-        case '-cm':
-            if len(args) < 4:
-                print("Run with args -cm <vk_post_url> <tg_post_url>")
-            edit_music(bot, args[2:])
-        case _:
-            print("usage: vk-to-tg [-e <count> <order>] [-n] [-cm <vk_post_url> <tg_post_url>]")
-            sys.exit(0)
+    if args.e:
+        get_def_posts(bot, args.e)
+    elif args.n:
+
+        get_new_posts(bot)
+    elif args.cm:
+        if len(args.cm) < 2:
+            print("Run with args -cm <vk_post_url> <tg_post_url>")
+        else:
+            edit_music(bot, args.cm)
+    else:
+        parser.print_help()
+        sys.exit(0)
 
 
-def download_key(key_uri: str) -> bin:
-    return requests.get(url=key_uri).content
+if __name__ == '__main__':
+    main()
 
 
-def parse_segments(segments: list):
-    segments_data = {}
-
-    for segment in segments:
-        segment_uri = segment.get("uri")
-
-        extended_segment = {
-            "segment_method": None,
-            "method_uri": None
-        }
-        if segment.get("key").get("method") == "AES-128":
-            extended_segment["segment_method"] = True
-            extended_segment["method_uri"] = segment.get("key").get("uri")
-        segments_data[segment_uri] = extended_segment
-    return segments_data
 
 
-def download_segments(segments_data: dict, index_url: str) -> bin:
-    downloaded_segments = []
-
-    for uri in segments_data.keys():
-        audio = requests.get(url=index_url.replace("index.m3u8", uri))
-
-        downloaded_segments.append(audio.content)
-
-        if segments_data.get(uri).get("segment_method") is not None:
-            key_uri = segments_data.get(uri).get("method_uri")
-            key = download_key(key_uri=key_uri)
-
-            iv = downloaded_segments[-1][0:16]
-            ciphered_data = downloaded_segments[-1][16:]
-
-            cipher = AES.new(key, AES.MODE_CBC, iv=iv)
-            data = unpad(cipher.decrypt(ciphered_data), AES.block_size)
-            downloaded_segments[-1] = data
-
-    return b''.join(downloaded_segments)
-
-
-def get_music(audio):
-    url = audio['url']
-    m3u8_data = m3u8.load(url)
-    segments = m3u8_data.get("segments")
-    segments_data = parse_segments(segments=segments)
-    segments_loaded = download_segments(segments_data=segments_data, index_url=url)
-    with open("", "w+b") as f:
-        f.write(download_segments(segments_data, url))
