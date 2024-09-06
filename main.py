@@ -5,15 +5,14 @@ import sys
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 
-from telegram import InputMediaPhoto, InputMediaAudio
+
 from telegram.ext import Updater
 import time
-import m3u8
+
 import requests
 import subprocess
 from dotenv import dotenv_values
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
+
 import logging
 
 from vk_api.vk_api import VkApiMethod
