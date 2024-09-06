@@ -17,9 +17,9 @@ import subprocess
 LOG_FORMAT = logging.Formatter(u'[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s')
 LOG_FILENAME = "bot.log"
 LOG_LEVEL = logging.DEBUG
-ORDER_CHRONO = 1
+ORDER_OLDEST = 1
 """Chronological order of posts"""
-ORDER_REVERSE = -1
+ORDER_NEWEST = -1
 """Wall order of posts"""
 
 
@@ -53,7 +53,7 @@ class Vk2Tg:
         self.bot_logger = self._setup_logger()
         self.bot_logger.debug("INIT SUCCESSFULLY")
 
-    def copy_ex_posts(self, count=0, order=ORDER_CHRONO,offset=0):
+    def copy_ex_posts(self, count=0, order=ORDER_OLDEST, offset=0):
         """Copy existing posts
 
         count : number of posts
@@ -70,11 +70,12 @@ class Vk2Tg:
         if count == 0:
             count = total
         self.bot_logger.debug(min(offset + count, total))
-        posts = sorted(wall["items"],key = lambda d: d["date"]) #sort by date because of pinned post
+        wall_posts = sorted(wall["items"], key=lambda d: d["date"])  #sort by date because of pinned post
 
         for i in range(offset, min(offset + count, total)):
             try:
-                post = self._post_handler(posts[::order][i]) #reverse by [::-1] if we want chrono order
+                post = self._post_handler(wall_posts[::order][i])  #reverse by [::-1] if we want chrono order
+                self.bot_logger.debug(post.text)
                 self.send_message(post)
                 time.sleep(30)
             except ValueError as e:
@@ -208,7 +209,7 @@ def main():
         bot.load_config()
         bot.login()
         #bot.copy_new_posts()
-        bot.copy_ex_posts(offset=205)
+        bot.copy_ex_posts()
     except Exception as e:
         logging.error(e)
         exit(-1)
