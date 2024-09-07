@@ -55,7 +55,7 @@ class Vk2Tg:
         self.bot_logger = self._setup_logger()
         self.bot_logger.debug("INIT SUCCESSFULLY")
 
-    def edit_music(self, vk_link: str, tg_link:str):
+    def copy_music(self, vk_link: str, tg_link:str):
         self.bot_logger.info("Editing music")
         self.bot_logger.info(vk_link)
         vk_id = vk_link.split('?w=wall')[1].split('&')[0]
@@ -71,7 +71,7 @@ class Vk2Tg:
         """Copy existing posts
 
         count : number of posts
-        order : chronological or wall order (-1 or 1 respectively)
+        order : first older or first newer (-1 or 1 respectively)
         """
         if count < 0:
             raise ValueError("<count> should be greater than 0")
@@ -149,7 +149,7 @@ class Vk2Tg:
                                 file.write(response.content)
                         else:
                             subprocess.run(
-                                ['ffmpeg', '-http_persistent', 'false', '-i', url, '-y', '-c', 'copy', 'audio.mp3'])
+                                ['ffmpeg','-loglevel','quiet', '-http_persistent', 'false', '-i', url, '-y', '-c', 'copy', 'audio.mp3'],stdout=subprocess.DEVNULL)
                         content.audio.append(InputMediaAudio(open('audio.mp3', 'rb'),
                                                              performer=audio_att['artist'],
                                                              title=audio_att['title']))

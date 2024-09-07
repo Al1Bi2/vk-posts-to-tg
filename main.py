@@ -9,41 +9,27 @@ import vk2tg
 def main():
     parser = argparse.ArgumentParser(
         description='A service for migration from VKontakte to Telegram and simultaneous posting.')
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('-e', action="append", nargs="*", type=int, metavar=('count', 'order'),
-                       help=' -e [count [order [offset]]] Migrate existing posts')
-    group.add_argument('-n', action='store_true', help='Mirror new posts')
-    group.add_argument('-cm', nargs=2, metavar=('vk_post_url', 'tg_post_url'), help='Edit music in tg from vk')
-    parser.add_argument('-l', "--local", action='store_true', help='Use .env file')
-
+    subparsers = parser.add_subparsers(required=True, dest="type")
+    a = subparsers.add_parser("ex", help="Migrate existing posts")
+    a.add_argument("-c", "--count", default=0, type=int, help="Count of posts, default - all")
+    a.add_argument("-r", "--order", default=1,type=int, choices=[1, -1], help="Order (1 for OLDER first, -1 for NEWER first")
+    a.add_argument("-f", "--offset", default=0, type=int, help="Nuber of start post(from 0)")
+    b = subparsers.add_parser("new", help='Mirror new posts')
+    c = subparsers.add_parser("copy", help='Copy music from vk post to tg (added in case music download error)')
+    c.add_argument("-in", dest="i", required=True, type=str, help="URL of VK post")
+    c.add_argument("-out", dest="o", required=True, type=str, help="URL of TG post")
     args = parser.parse_args()
-
-    if args.local:
-        config = dotenv_values('.env')
 
     bot = vk2tg.Vk2Tg()
     bot.load_config()
     bot.login()
-
-    if args.e:
-        subarg = args.e[0]
-        if len(subarg) == 0:
-            bot.copy_ex_posts()
-        elif len(subarg) == 1:
-            bot.copy_ex_posts(subarg[0])
-        elif len(subarg) == 2:
-            bot.copy_ex_posts(subarg[0], subarg[1])
-        elif len(subarg) == 3:
-            bot.copy_ex_posts(subarg[0], subarg[1], subarg[2])
-        elif len(subarg) > 3:
-            raise IOError("argument -e: expected 0..3 arguments")
-    elif args.n:
-        bot.copy_new_posts()
-    elif args.cm:
-        bot.edit_music()
-    else:
-        parser.print_help()
-        exit(-1)
+    match args.type:
+        case "ex":
+            bot.copy_ex_posts(args.count, args.order, args.offset)
+        case "new":
+            bot.copy_new_posts()
+        case "copy":
+            bot.copy_music(args.i, args.o)
 
 
 if __name__ == '__main__':
