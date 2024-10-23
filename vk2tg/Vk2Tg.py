@@ -54,7 +54,17 @@ class Vk2Tg:
         self.tg_session = None
         self.bot_logger = self._setup_logger()
         self.bot_logger.debug("INIT SUCCESSFULLY")
+    def copy_image(self, vk_link: str, tg_link:str):
+        self.bot_logger.info("Editing music")
+        self.bot_logger.info(vk_link)
+        vk_id = vk_link.split('?w=wall')[1].split('&')[0]
+        tg_id = int(tg_link.split('/')[-1].split('?')[0])
 
+        post = self.vkapi.wall.get_by_id(posts=vk_id)[0]
+        content = self._post_handler(post,doText=False, doAudio=False)
+        self.bot_logger.info(content.text)
+        for idx, song in enumerate(content.media):
+            self.tg_session.edit_message_media(media=song, chat_id=self.config['TELEGRAM_GROUP_ID'], message_id=tg_id + idx)
     def copy_music(self, vk_link: str, tg_link:str):
         self.bot_logger.info("Editing music")
         self.bot_logger.info(vk_link)
@@ -62,7 +72,7 @@ class Vk2Tg:
         tg_id = int(tg_link.split('/')[-1].split('?')[0])
 
         post = self.vkapi.wall.get_by_id(posts=vk_id)[0]
-        content = self._post_handler(post)
+        content = self._post_handler(post,doText=False, doMedia=False)
         self.bot_logger.info(content.text)
         for idx, song in enumerate(content.audio):
             self.tg_session.edit_message_media(media=song, chat_id=self.config['TELEGRAM_GROUP_ID'], message_id=tg_id + idx)
@@ -120,24 +130,24 @@ class Vk2Tg:
             self.tg_session.send_media_group(self.config['TELEGRAM_GROUP_ID'], media=content.audio,
                                              reply_to_message_id=message.message_id)
 
-    def _post_handler(self, post) -> Content:
+    def _post_handler(self, post, doText=True, doMedia=True, doAudio=True) -> Content:
         try:
             content = Content()
             self.bot_logger.info('Post received')
-            if post['text'] != '':
+            if post['text'] != '' and doText:
                 content.text = post['text']
 
             if 'attachments' in post.keys():
 
                 for attachment in post['attachments']:
-                    if attachment['type'] == 'photo':
+                    if attachment['type'] == 'photo' and doMedia:
                         photo = attachment['photo']
                         max_size_photo = max(photo['sizes'], key=lambda x: x['height'])
                         url = max_size_photo['url']
                         content.media.append(
                             InputMediaPhoto(url, caption=post['text'] if len(content.media) == 0 else ""))
 
-                    if attachment['type'] == 'audio':
+                    if attachment['type'] == 'audio' and doAudio:
                         audio_att = attachment['audio']
                         url = audio_att['url']
                         if url.split(".")[-1][:3] == "mp3":
@@ -225,7 +235,6 @@ def main():
         bot.login()
         #bot.copy_new_posts()
         #bot.copy_ex_posts()
-        bot.edit_music(vk_link="",tg_link="")
     except Exception as e:
         logging.error(e)
         exit(-1)
