@@ -19,8 +19,8 @@ def main():
     cm.add_argument("-in", dest="i", required=True, type=str, help="URL of VK post")
     cm.add_argument("-out", dest="o", required=True, type=str, help="URL of TG post")
     ci = subparsers.add_parser("ci", help='Copy image from vk post to tg (added in case image download error)')
-    ci.add_argument("in", dest="i", required=True, type=str, help="URL of VK post")
-    ci.add_argument("out", dest="o", required=True, type=str, help="URL of TG post")
+    ci.add_argument("-in", dest="i", required=True, type=str, help="URL of VK post")
+    ci.add_argument("-out", dest="o", required=True, type=str, help="URL of TG post")
     args = parser.parse_args()
 
     bot = vk2tg.Vk2Tg()
