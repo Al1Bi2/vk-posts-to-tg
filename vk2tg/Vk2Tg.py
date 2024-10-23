@@ -225,7 +225,7 @@ def main():
         bot.login()
         #bot.copy_new_posts()
         #bot.copy_ex_posts()
-        bot.edit_music(vk_link="https://vk.com/electro_minds?w=wall-201106047_388",tg_link="")
+        bot.edit_music(vk_link="",tg_link="")
     except Exception as e:
         logging.error(e)
         exit(-1)
