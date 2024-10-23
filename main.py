@@ -216,16 +216,35 @@ def edit_music(bot, *vargs):
         bot.edit_message_media(media=song, chat_id=config['TELEGRAM_GROUP_ID'], message_id=tg_post + idx)
 
 
+def edit_image(bot, *vargs):
+    bot_logger.info("Editing image")
+    vargs = vargs[0]
+    vk_post = vargs[0].split('?w=wall')[1].split('&')[0]
+    tg_post = int(vargs[1].split('/')[-1].split('?')[0])
+    vk_session = vk_login()
+
+    vk = VkApiMethod(vk_session)
+    post = vk.wall.get_by_id(posts=vk_post)[0]
+    content = post_handler(post)
+
+    if content['media']:  # Если в посте есть изображения
+        for idx, image in enumerate(content['media']):
+            bot_logger.info(f"Edit image {tg_post + idx}")
+            bot.edit_message_media(media=image, chat_id=config['TELEGRAM_GROUP_ID'], message_id=tg_post + idx)
+    else:
+        bot_logger.info(f"No images found in VK post {vk_post}")
+
+
 def main():
     global config
-    parser = argparse.ArgumentParser(description='A service for migration from VKontakte to Telegram and simultaneous posting.')
+    parser = argparse.ArgumentParser(
+        description='A service for migration from VKontakte to Telegram and simultaneous posting.')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-e', nargs=2, metavar=('count', 'order'), help='Migrate existing posts')
     group.add_argument('-n', action='store_true', help='Mirror new posts')
     group.add_argument('-cm', nargs=2, metavar=('vk_post_url', 'tg_post_url'), help='Edit music in tg from vk')
+    group.add_argument('-ci', nargs=2, metavar=('vk_post_url', 'tg_post_url'), help='Edit image in tg from vk')
     parser.add_argument('-l', "--local", action='store_true', help='Use .env file')
-
-
 
     args = parser.parse_args()
     try:
@@ -249,6 +268,11 @@ def main():
             print("Run with args -cm <vk_post_url> <tg_post_url>")
         else:
             edit_music(bot, args.cm)
+    elif args.ci:
+        if len(args.ci) < 2:
+            print("Run with args -cm <vk_post_url> <tg_post_url>")
+        else:
+            edit_image(bot, args.ci)
     else:
         parser.print_help()
         sys.exit(0)
@@ -256,7 +280,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
